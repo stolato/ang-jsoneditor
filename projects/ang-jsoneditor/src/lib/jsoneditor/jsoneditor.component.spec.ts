@@ -1,4 +1,4 @@
-import { Component, viewChild } from '@angular/core';
+import { Component, viewChild, viewChildren } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 
@@ -11,6 +11,15 @@ function treeOptions(extra: Partial<JsonEditorOptions> = {}): JsonEditorOptions 
   const options = new JsonEditorOptions();
   options.mode = 'tree';
   return Object.assign(options, extra);
+}
+
+/** Calls the callbacks jsoneditor invokes when the user edits the content. */
+function simulateUserChange(component: JsonEditorComponent) {
+  component.getEditor().options.onChange();
+}
+
+function simulateUserChangeJSON(component: JsonEditorComponent) {
+  component.getEditor().options.onChangeJSON(component.get());
 }
 
 describe('JsonEditorComponent', () => {
@@ -62,18 +71,55 @@ describe('JsonEditorComponent', () => {
   });
 
   describe('data input', () => {
-    it('re-creates the editor when a new reference is set', () => {
+    it('updates the existing editor when a new reference is set', () => {
       create();
       const before = component.getEditor();
 
       fixture.componentRef.setInput('data', { other: true });
       fixture.detectChanges();
 
-      expect(component.getEditor()).not.toBe(before);
+      expect(component.getEditor()).toBe(before);
       expect(component.get()).toEqual({ other: true });
     });
 
-    it('keeps a single editor in the DOM after re-creating it', () => {
+    it('keeps the current mode when data changes', () => {
+      create();
+      component.setMode('text');
+
+      fixture.componentRef.setInput('data', { other: true });
+      fixture.detectChanges();
+
+      expect(component.getMode()).toBe('text');
+      expect(component.get()).toEqual({ other: true });
+    });
+
+    it('keeps expanded nodes when data changes', () => {
+      create();
+      const products = () => component.getEditor().node.childs[0];
+      products().expand();
+
+      fixture.componentRef.setInput('data', { products: [{ name: 'bike', model: [] }] });
+      fixture.detectChanges();
+
+      expect(products().expanded).toBe(true);
+    });
+
+    it('accepts null as data', () => {
+      create();
+      fixture.componentRef.setInput('data', null);
+      fixture.detectChanges();
+      expect(component.get()).toBeNull();
+    });
+
+    it('re-applies the expandAll option when data changes', () => {
+      create(treeOptions({ expandAll: true }));
+      fixture.componentRef.setInput('data', { a: { b: { c: 1 } } });
+      fixture.detectChanges();
+
+      expect(component.getEditor().node.childs[0].expanded).toBe(true);
+    });
+
+    it('keeps a single editor in the DOM after data changes', () => {
       create();
       fixture.componentRef.setInput('data', { a: 1 });
       fixture.componentRef.setInput('data', { b: 2 });
@@ -145,6 +191,33 @@ describe('JsonEditorComponent', () => {
       expect(component.getMode()).toBe('text');
       expect(component.get()).toEqual(SAMPLE);
     });
+
+    it('setOptions() keeps the content edited by the user', () => {
+      create();
+      component.set({ edited: true } as any);
+
+      component.setOptions(treeOptions({ mode: 'text' }));
+
+      expect(component.get()).toEqual({ edited: true });
+    });
+
+    it('setOptions() keeps invalid text typed by the user', () => {
+      create(treeOptions({ mode: 'text' }));
+      component.getEditor().setText('{ "half": ');
+
+      component.setOptions(treeOptions({ mode: 'code' }));
+
+      expect(component.getText()).toBe('{ "half": ');
+    });
+
+    it('setOptions() before the editor exists only stores the options', () => {
+      fixture = TestBed.createComponent(JsonEditorComponent);
+      const options = treeOptions({ mode: 'text' });
+      fixture.componentInstance.setOptions(options);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.getMode()).toBe('text');
+    });
   });
 
   describe('options', () => {
@@ -181,13 +254,44 @@ describe('JsonEditorComponent', () => {
       expect(fixture.nativeElement.querySelector('.jsoneditor-menu')).toBeNull();
     });
 
-    it('keeps a custom onChange instead of overriding it', () => {
+    it('does not mutate the options object passed in', () => {
+      const options = treeOptions();
+      const snapshot = { ...options };
+      create(options);
+      simulateUserChange(component);
+
+      expect({ ...options }).toEqual(snapshot);
+      expect(options.onChange).toBeUndefined();
+      expect(options.onChangeJSON).toBeUndefined();
+    });
+
+    it('calls a custom onChange and still emits change / updates the model', () => {
       const custom = vi.fn();
       const options = treeOptions();
       options.onChange = custom;
       create(options);
+      const emitted: unknown[] = [];
+      component.change.subscribe(v => emitted.push(v));
 
-      expect(component.options.onChange).toBe(custom);
+      simulateUserChange(component);
+
+      expect(options.onChange).toBe(custom);
+      expect(custom).toHaveBeenCalledTimes(1);
+      expect(emitted).toEqual([SAMPLE]);
+    });
+
+    it('calls a custom onChangeJSON and still emits jsonChange', () => {
+      const custom = vi.fn();
+      const options = treeOptions();
+      options.onChangeJSON = custom;
+      create(options);
+      const emitted: unknown[] = [];
+      component.jsonChange.subscribe(v => emitted.push(v));
+
+      simulateUserChangeJSON(component);
+
+      expect(custom).toHaveBeenCalledWith(SAMPLE);
+      expect(emitted).toEqual([SAMPLE]);
     });
 
     it('debug mode logs options and data', () => {
@@ -209,7 +313,7 @@ describe('JsonEditorComponent', () => {
       component.change.subscribe(v => emitted.push(v));
 
       component.set({ changed: true } as any);
-      component.options.onChange!();
+      simulateUserChange(component);
 
       expect(emitted).toEqual([{ changed: true }]);
     });
@@ -220,7 +324,7 @@ describe('JsonEditorComponent', () => {
       component.change.subscribe(v => emitted.push(v));
 
       component.getEditor().setText('{ invalid');
-      component.options.onChange!();
+      simulateUserChange(component);
 
       expect(emitted).toEqual([]);
     });
@@ -231,7 +335,7 @@ describe('JsonEditorComponent', () => {
       component.jsonChange.subscribe(v => emitted.push(v));
 
       component.set({ tree: 1 } as any);
-      component.options.onChangeJSON!();
+      simulateUserChangeJSON(component);
 
       expect(emitted).toEqual([{ tree: 1 }]);
     });
@@ -279,6 +383,68 @@ class NgModelHostComponent {
   editor = viewChild.required(JsonEditorComponent);
 }
 
+@Component({
+  imports: [JsonEditorComponent],
+  template: `<json-editor [options]="options" [data]="data" (change)="received.push($event)" />`
+})
+class ChangeHostComponent {
+  options = treeOptions();
+  data = { a: 1 };
+  received: unknown[] = [];
+  editor = viewChild.required(JsonEditorComponent);
+}
+
+describe('JsonEditorComponent (change) binding', () => {
+  it('does not deliver native DOM change events bubbling from inside the editor', () => {
+    const fixture = TestBed.createComponent(ChangeHostComponent);
+    fixture.detectChanges();
+
+    const inner = fixture.nativeElement.querySelector('.jsoneditor-search input, input, select');
+    inner.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(fixture.componentInstance.received.filter(v => v instanceof Event)).toEqual([]);
+  });
+
+  it('still delivers the JSON emitted by the change output', () => {
+    const fixture = TestBed.createComponent(ChangeHostComponent);
+    fixture.detectChanges();
+
+    simulateUserChange(fixture.componentInstance.editor());
+
+    expect(fixture.componentInstance.received).toEqual([{ a: 1 }]);
+  });
+});
+
+@Component({
+  imports: [JsonEditorComponent],
+  template: `
+    <json-editor [options]="shared" [data]="first" (change)="fromFirst.push($event)" />
+    <json-editor [options]="shared" [data]="second" (change)="fromSecond.push($event)" />
+  `
+})
+class SharedOptionsHostComponent {
+  shared = treeOptions();
+  first = { editor: 1 };
+  second = { editor: 2 };
+  fromFirst: unknown[] = [];
+  fromSecond: unknown[] = [];
+  editors = viewChildren(JsonEditorComponent);
+}
+
+describe('JsonEditorComponent sharing one options object', () => {
+  it('each editor emits its own changes', () => {
+    const fixture = TestBed.createComponent(SharedOptionsHostComponent);
+    fixture.detectChanges();
+    const [first, second] = fixture.componentInstance.editors();
+
+    simulateUserChange(first);
+    simulateUserChange(second);
+
+    expect(fixture.componentInstance.fromFirst).toEqual([{ editor: 1 }]);
+    expect(fixture.componentInstance.fromSecond).toEqual([{ editor: 2 }]);
+  });
+});
+
 describe('JsonEditorComponent forms integration', () => {
   it('reactive forms: control value is shown in the editor', async () => {
     const fixture = TestBed.createComponent(ReactiveHostComponent);
@@ -292,10 +458,37 @@ describe('JsonEditorComponent forms integration', () => {
     const fixture = TestBed.createComponent(ReactiveHostComponent);
     fixture.detectChanges();
 
+    const editorBefore = fixture.componentInstance.editor().getEditor();
+
     fixture.componentInstance.control.setValue({ next: 2 });
     await fixture.whenStable();
 
     expect(fixture.componentInstance.editor().get()).toEqual({ next: 2 });
+    expect(fixture.componentInstance.editor().getEditor()).toBe(editorBefore);
+  });
+
+  it('reactive forms: setValue() does not mark the control dirty or re-emit', async () => {
+    const fixture = TestBed.createComponent(ReactiveHostComponent);
+    fixture.detectChanges();
+    const control = fixture.componentInstance.control;
+    const values: unknown[] = [];
+    control.valueChanges.subscribe(v => values.push(v));
+
+    control.setValue({ next: 3 });
+    await fixture.whenStable();
+
+    expect(values).toEqual([{ next: 3 }]);
+    expect(control.dirty).toBe(false);
+  });
+
+  it('reactive forms: reset() clears the editor', async () => {
+    const fixture = TestBed.createComponent(ReactiveHostComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.control.reset();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.editor().get()).toBeNull();
   });
 
   it('reactive forms: editor changes update the control', async () => {
@@ -304,7 +497,7 @@ describe('JsonEditorComponent forms integration', () => {
     const editor = fixture.componentInstance.editor();
 
     editor.set({ fromEditor: true } as any);
-    editor.options.onChange!();
+    simulateUserChange(editor);
 
     expect(fixture.componentInstance.control.value).toEqual({ fromEditor: true });
   });
@@ -327,7 +520,7 @@ describe('JsonEditorComponent forms integration', () => {
     expect(editor.get()).toEqual({ initial: 'ngModel' });
 
     editor.set({ edited: 1 } as any);
-    editor.options.onChange!();
+    simulateUserChange(editor);
 
     expect(fixture.componentInstance.model).toEqual({ edited: 1 });
   });

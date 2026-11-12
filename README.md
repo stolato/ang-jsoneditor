@@ -131,7 +131,7 @@ export class AppModule { }
 | Input     | Type                | Default                   | Description                                                                 |
 |-----------|---------------------|---------------------------|-----------------------------------------------------------------------------|
 | `options` | `JsonEditorOptions` | `new JsonEditorOptions()` | Editor configuration (see [Options](#options)).                             |
-| `data`    | `object`            | `{}`                      | JSON shown in the editor. Setting a new reference re-creates the editor.    |
+| `data`    | `object`            | `{}`                      | JSON shown in the editor. A new reference updates the editor in place.      |
 | `debug`   | `boolean`           | `false`                   | Logs the options and data passed to jsoneditor to the console.              |
 
 ### Outputs
@@ -164,7 +164,7 @@ Get a reference with `viewChild` (or `@ViewChild`) to call these:
 | `getSelection()` / `setSelection(start, end)` | Gets/sets the selection.                            |
 | `setSchema(schema, schemaRefs)`    | Sets a JSON schema for validation.                             |
 | `getValidateSchema()`              | Returns the compiled schema validator.                         |
-| `setOptions(options)`              | Re-creates the editor with new options.                        |
+| `setOptions(options)`              | Re-creates the editor with new options, keeping its content.   |
 | `getEditor()`                      | Returns the underlying `JSONEditor` instance.                  |
 | `destroy()`                        | Destroys the editor (called on `ngOnDestroy` automatically).   |
 
@@ -241,7 +241,7 @@ const errors = this.editor().getEditor().validateSchema.errors;
 
 ### Updating data
 
-The `data` input only re-creates the editor when it gets a **new reference**. Mutating the existing object will not update the view:
+The `data` input updates the editor when it gets a **new reference**. The update happens in place, so the current mode, expanded nodes and scroll position are kept. Mutating the existing object will not update the view:
 
 ```ts
 // does not update the editor
@@ -262,17 +262,17 @@ toggleStatusBar() {
 
 ### Multiple editors
 
-Each editor needs its own `JsonEditorOptions` instance. Do not share one instance between editors:
+Several editors can share the same `JsonEditorOptions` instance. The component never modifies the options object you pass in, and each editor emits its own changes:
 
 ```html
 @for (product of data.products; track $index) {
-  <json-editor [options]="makeOptions()" [data]="product" (change)="onChange($event)" />
+  <json-editor [options]="editorOptions" [data]="product" (change)="onChange($index, $event)" />
 }
 ```
 
-```ts
-makeOptions = () => new JsonEditorOptions();
-```
+### Custom callbacks
+
+You can still set jsoneditor callbacks such as `onChange` or `onChangeJSON` in the options. They are called **in addition to** the `change`/`jsonChange` outputs and the forms integration, which keep working.
 
 ## Troubleshooting
 
@@ -323,6 +323,15 @@ Coming from `@maaxgr/ang-jsoneditor@14`:
 3. `AngJsoneditorModule` still works. In standalone components you can import `JsonEditorComponent` directly instead.
 4. `@angular/forms` is now a peer dependency (it was already required).
 5. Optional: upgrade `jsoneditor` to 10.x. Both 9.x and 10.x are supported.
+
+Behavior changes in v21 (bug fixes you may notice):
+
+- A new `data` reference (or `setValue()` on a form control) updates the editor in place instead of re-creating it. Mode, expanded nodes and scroll position are kept.
+- `setOptions()` keeps the current content, including unsaved edits.
+- `(change)` only receives the JSON. Previously, native `change` DOM events from inputs inside the editor (enum selects, checkboxes, search box) also reached the handler as `Event` objects.
+- Your `JsonEditorOptions` object is no longer modified, so it can be shared between editors.
+- A custom `onChange`/`onChangeJSON` in the options no longer disables the `change`/`jsonChange` outputs and the forms integration.
+- `null` data (e.g. after `control.reset()`) is shown as `null` instead of `{}`.
 
 ## Local development
 

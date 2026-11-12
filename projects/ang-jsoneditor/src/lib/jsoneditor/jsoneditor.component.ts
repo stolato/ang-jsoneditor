@@ -11,7 +11,9 @@ import { JsonEditorOptions, JsonEditorMode, JsonEditorTreeNode, IError } from '.
   // tslint:disable-next-line:component-selector
   selector: 'json-editor',
   standalone: true,
-  template: `<div [id]="id" #jsonEditorContainer></div>`,
+  // Native `change` events from inputs inside jsoneditor (selects, checkboxes, search box)
+  // are stopped here so they don't bubble to the host and collide with the `change` output.
+  template: `<div [id]="id" #jsonEditorContainer (change)="$event.stopPropagation()"></div>`,
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -29,8 +31,6 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
   disabled = false;
   isFocused = false;
 
-  public optionsChanged = false;
-
   @ViewChild('jsonEditorContainer', { static: true }) jsonEditorContainer: ElementRef;
 
   private _data: Object = {};
@@ -40,8 +40,11 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
   set data(value: Object) {
     this._data = value;
     if (this.editor) {
-      this.editor.destroy();
-      this.ngOnInit();
+      // Update in place: keeps mode, expanded nodes, selection and scroll position.
+      this.editor.update(value);
+      if (this.options.expandAll) {
+        this.editor.expandAll();
+      }
     }
   }
   @Input() debug = false;
@@ -56,44 +59,57 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
 
 
   ngOnInit() {
-    let optionsBefore = this.options;
-    if (!this.optionsChanged && this.editor) {
-      optionsBefore = this.editor.options;
-    }
+    this.createEditor(this._data);
+  }
 
-    if (!this.options.onChangeJSON && this.jsonChange) {
-      this.options.onChangeJSON = this.onChangeJSON.bind(this);
-    }
-    if (!this.options.onChange && this.change) {
-      this.options.onChange = this.onChange.bind(this);
-    }
-    const optionsCopy = Object.assign({}, optionsBefore);
-
-    // expandAll is an option only supported by ang-jsoneditor and not by the the original jsoneditor.
-    delete optionsCopy.expandAll;
-
-    // Unset options must not reach jsoneditor: an explicit `undefined` would override
-    // jsoneditor's own defaults (e.g. hide the main menu bar).
-    for (const key of Object.keys(optionsCopy) as (keyof JsonEditorOptions)[]) {
-      if (optionsCopy[key] === undefined) {
-        delete optionsCopy[key];
-      }
-    }
+  private createEditor(data: any) {
+    const editorOptions = this.buildEditorOptions(this.options);
     if (this.debug) {
-      console.log(optionsCopy, this._data);
+      console.log(editorOptions, data);
     }
-    if (!this.jsonEditorContainer.nativeElement) {
-      console.error(`Can't find the ElementRef reference for jsoneditor)`);
-    }
-
-    if (optionsCopy.mode === 'text' || optionsCopy.mode === 'code') {
-      optionsCopy.onChangeJSON = null;
-    }
-    this.editor = new JSONEditor(this.jsonEditorContainer.nativeElement, optionsCopy, this._data);
+    this.editor = new JSONEditor(this.jsonEditorContainer.nativeElement, editorOptions, data);
 
     if (this.options.expandAll) {
       this.editor.expandAll();
     }
+  }
+
+  /**
+   * Builds the options object passed to jsoneditor. The user's options object is never mutated,
+   * so the same JsonEditorOptions instance can be shared between several editors.
+   */
+  private buildEditorOptions(options: JsonEditorOptions): any {
+    const editorOptions: any = { ...options };
+
+    // expandAll is an option only supported by ang-jsoneditor and not by the original jsoneditor.
+    delete editorOptions.expandAll;
+
+    // Unset options must not reach jsoneditor: an explicit `undefined` would override
+    // jsoneditor's own defaults (e.g. hide the main menu bar).
+    for (const key of Object.keys(editorOptions)) {
+      if (editorOptions[key] === undefined) {
+        delete editorOptions[key];
+      }
+    }
+
+    const userOnChange = options.onChange;
+    editorOptions.onChange = () => {
+      userOnChange?.();
+      this.onChange(undefined);
+    };
+
+    if (editorOptions.mode === 'text' || editorOptions.mode === 'code') {
+      // onChangeJSON is not supported by jsoneditor in text/code mode.
+      delete editorOptions.onChangeJSON;
+    } else {
+      const userOnChangeJSON = options.onChangeJSON as ((json: any) => void) | undefined;
+      editorOptions.onChangeJSON = (json: any) => {
+        userOnChangeJSON?.(json);
+        this.onChangeJSON(json);
+      };
+    }
+
+    return editorOptions;
   }
 
   ngOnDestroy() {
@@ -226,12 +242,23 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
   }
 
   public setOptions(newOptions: JsonEditorOptions) {
-    if (this.editor) {
-      this.editor.destroy();
-    }
-    this.optionsChanged = true;
     this.options = newOptions;
-    this.ngOnInit();
+    if (!this.editor) {
+      return;
+    }
+
+    // Keep the current content (including user edits) when re-creating the editor.
+    const text: string = this.editor.getText();
+    this.editor.destroy();
+    this.createEditor(this._data);
+    try {
+      this.editor.set(JSON.parse(text));
+    } catch {
+      this.editor.setText(text);
+    }
+    if (this.options.expandAll) {
+      this.editor.expandAll();
+    }
   }
 
   public update(json: JSON) {
