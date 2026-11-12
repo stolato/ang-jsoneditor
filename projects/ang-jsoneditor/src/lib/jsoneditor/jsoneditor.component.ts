@@ -2,13 +2,15 @@ import {
   Component, ElementRef, Input, OnInit, OnDestroy, ViewChild,
   Output, EventEmitter, forwardRef, ChangeDetectionStrategy
 } from '@angular/core';
-import JSONEditor from "jsoneditor";
+// @ts-ignore - jsoneditor ships without TypeScript typings
+import JSONEditor from 'jsoneditor';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { JsonEditorOptions, JsonEditorMode, JsonEditorTreeNode, IError } from './jsoneditoroptions';
 
 @Component({
   // tslint:disable-next-line:component-selector
   selector: 'json-editor',
+  standalone: true,
   template: `<div [id]="id" #jsonEditorContainer></div>`,
   providers: [
     {
@@ -69,6 +71,14 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
 
     // expandAll is an option only supported by ang-jsoneditor and not by the the original jsoneditor.
     delete optionsCopy.expandAll;
+
+    // Unset options must not reach jsoneditor: an explicit `undefined` would override
+    // jsoneditor's own defaults (e.g. hide the main menu bar).
+    for (const key of Object.keys(optionsCopy) as (keyof JsonEditorOptions)[]) {
+      if (optionsCopy[key] === undefined) {
+        delete optionsCopy[key];
+      }
+    }
     if (this.debug) {
       console.log(optionsCopy, this._data);
     }
@@ -102,12 +112,12 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
   }
 
   // Implemented as part of ControlValueAccessor
-  registerOnChange(fn) {
+  registerOnChange(fn: any) {
     this.onChangeModel = fn;
   }
 
   // Implemented as part of ControlValueAccessor.
-  registerOnTouched(fn) {
+  registerOnTouched(fn: any) {
     this.onTouched = fn;
   }
 
@@ -246,4 +256,5 @@ export class JsonEditorComponent implements ControlValueAccessor, OnInit, OnDest
   }
 }
 
-export { JsonEditorOptions, JsonEditorMode, JsonEditorTreeNode, IError };
+export { JsonEditorOptions };
+export type { JsonEditorMode, JsonEditorTreeNode, IError };

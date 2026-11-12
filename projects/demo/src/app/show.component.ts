@@ -3,6 +3,7 @@ import { JsonEditorComponent, JsonEditorOptions } from 'ang-jsoneditor';
 
 @Component({
   selector: 'app-show',
+  standalone: true,
   template: '<div>{{showData()}}</div>'
 })
 export class ShowComponent {

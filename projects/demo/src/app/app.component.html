@@ -21,7 +21,9 @@ Random Number: {{data.randomNumber}}
 
 <hr />
 
-<h3 *ngIf="editorOptions.language">Force Language to {{editorOptions.language}}</h3>
+@if (editorOptions.language) {
+  <h3>Force Language to {{editorOptions.language}}</h3>
+}
 
 <h3>Example with (change)</h3>
 <div style="height:600px;">

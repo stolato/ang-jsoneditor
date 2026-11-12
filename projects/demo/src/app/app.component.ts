@@ -1,10 +1,13 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { JsonEditorComponent, JsonEditorOptions } from 'ang-jsoneditor';
-import { UntypedFormBuilder } from '@angular/forms';
+import { AngJsoneditorModule, JsonEditorComponent, JsonEditorOptions } from 'ang-jsoneditor';
+import { FormsModule, ReactiveFormsModule, UntypedFormBuilder } from '@angular/forms';
+import { ShowComponent } from './show.component';
 import { schema } from './schema.value';
 
 @Component({
   selector: 'app-root',
+  standalone: true,
+  imports: [FormsModule, ReactiveFormsModule, AngJsoneditorModule, ShowComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
