@@ -1,11 +1,11 @@
 {
-  "name": "@maaxgr/ang-jsoneditor",
+  "name": "@stolato/ang-jsoneditor",
   "version": "21.0.0",
   "license": "MIT",
-  "homepage": "https://github.com/MaaxGr/ang-jsoneditor",
+  "homepage": "https://github.com/stolato/ang-jsoneditor",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MaaxGr/ang-jsoneditor"
+    "url": "git+https://github.com/stolato/ang-jsoneditor.git"
   },
   "author": "Max Großmann <github@maax.gr>, Mario Mol <mariohmol@gmail.com>, Manish Sodavadiya <manish_it56@yahoo.com>",
   "keywords": [
@@ -19,6 +19,9 @@
     "@angular/core": "^21.0.0",
     "@angular/forms": "^21.0.0",
     "jsoneditor": "^9.1.4 || ^10.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "tslib": "^2.3.0"

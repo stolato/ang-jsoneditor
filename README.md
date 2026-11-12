@@ -4,7 +4,7 @@ Angular wrapper for [jsoneditor](https://github.com/josdejong/jsoneditor): view,
 
 ![Demo Image](projects/docs/images/demo.png)
 
-> This is a fork of mariohmol's [ang-jsoneditor](https://github.com/mariohmol/ang-jsoneditor), kept up to date with recent Angular versions.
+> This is a fork of [MaaxGr/ang-jsoneditor](https://github.com/MaaxGr/ang-jsoneditor) (itself a fork of mariohmol's [ang-jsoneditor](https://github.com/mariohmol/ang-jsoneditor)), published as `@stolato/ang-jsoneditor` starting with Angular 21.
 
 ## Contents
 
@@ -20,24 +20,24 @@ Angular wrapper for [jsoneditor](https://github.com/josdejong/jsoneditor): view,
 
 ## Compatibility
 
-| Angular | Library version | Install command                         |
-|---------|-----------------|-----------------------------------------|
-| 21      | 21.x            | `npm install @maaxgr/ang-jsoneditor@21` |
+| Angular | Library version | Install command                          |
+|---------|-----------------|------------------------------------------|
+| 21      | 21.x            | `npm install @stolato/ang-jsoneditor@21` |
 | 14      | 14.x            | `npm install @maaxgr/ang-jsoneditor@14` |
 | 13      | 13.x            | `npm install @maaxgr/ang-jsoneditor@13` |
 | 12      | 12.x            | `npm install @maaxgr/ang-jsoneditor@12` |
 | 11      | 11.x            | `npm install @maaxgr/ang-jsoneditor@11` |
 
-Version 21 supports `jsoneditor` 9.x and 10.x.
+Versions 11 to 14 were published by the original fork as `@maaxgr/ang-jsoneditor`. Version 21 supports `jsoneditor` 9.x and 10.x.
 
-> **Note:** All versions are considered stable, but the library is not used in many production projects, so you may still run into bugs. Please [open an issue](https://github.com/MaaxGr/ang-jsoneditor/issues) if you do.
+> **Note:** All versions are considered stable, but the library is not used in many production projects, so you may still run into bugs. Please [open an issue](https://github.com/stolato/ang-jsoneditor/issues) if you do.
 
 ## Installation
 
 The `jsoneditor` library is a peer dependency and is **not** bundled with this wrapper. Install both packages:
 
 ```bash
-npm install jsoneditor @maaxgr/ang-jsoneditor@21
+npm install jsoneditor @stolato/ang-jsoneditor@21
 ```
 
 Then add the jsoneditor stylesheet to your global styles (`src/styles.scss`):
@@ -72,7 +72,7 @@ If the build warns that `jsoneditor` is a CommonJS dependency, allow it in `angu
 ```ts
 import { Component } from '@angular/core';
 import { JsonPipe } from '@angular/common';
-import { JsonEditorComponent, JsonEditorOptions } from '@maaxgr/ang-jsoneditor';
+import { JsonEditorComponent, JsonEditorOptions } from '@stolato/ang-jsoneditor';
 
 @Component({
   selector: 'app-root',
@@ -105,7 +105,7 @@ export class AppComponent {
 
 ```ts
 import { NgModule } from '@angular/core';
-import { AngJsoneditorModule } from '@maaxgr/ang-jsoneditor';
+import { AngJsoneditorModule } from '@stolato/ang-jsoneditor';
 
 @NgModule({
   imports: [
@@ -318,7 +318,12 @@ Turn on debug mode and include the console output in your issue:
 
 Coming from `@maaxgr/ang-jsoneditor@14`:
 
-1. Update Angular to 21 and install `@maaxgr/ang-jsoneditor@21`.
+1. Update Angular to 21, replace the package and update the imports:
+   ```bash
+   npm uninstall @maaxgr/ang-jsoneditor
+   npm install @stolato/ang-jsoneditor@21
+   ```
+   Then replace `'@maaxgr/ang-jsoneditor'` with `'@stolato/ang-jsoneditor'` in your imports. The exported names are the same.
 2. Remove the `~` prefix from the jsoneditor CSS import.
 3. `AngJsoneditorModule` still works. In standalone components you can import `JsonEditorComponent` directly instead.
 4. `@angular/forms` is now a peer dependency (it was already required).
@@ -351,7 +356,7 @@ The demo app is in `projects/demo`. See [Local Development](projects/docs/local-
 npm run build:lib
 cd dist/ang-jsoneditor && npm pack
 # in your project:
-npm install /path/to/maaxgr-ang-jsoneditor-21.0.0.tgz
+npm install /path/to/stolato-ang-jsoneditor-21.0.0.tgz
 ```
 
 ## License

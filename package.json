@@ -9,7 +9,7 @@
     "test": "ng test ang-jsoneditor --watch=false",
     "publish": "cp README.md projects/ang-jsoneditor/ && npm run build:lib && cd dist/ang-jsoneditor && npm publish && rm README.md"
   },
-  "private": false,
+  "private": true,
   "dependencies": {
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
